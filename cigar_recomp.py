@@ -101,6 +101,12 @@ def main():
 	outp = sys.argv[3]
 	nproc = int(sys.argv[4])
 
+	outp = os.path.realpath(outp)
+	outdir = os.path.dirname(outp)
+	print outdir
+	if not os.path.exists(outdir):
+		os.makedirs(outdir)
+
 	fafile = pysam.Fastafile(fa)
 	nseq = len(fafile.references)
 	nseq_per_proc = nseq/nproc + 1
@@ -130,14 +136,22 @@ def main():
 	except KeyboardInterrupt:
 		sys.exit()
 	else:
-		bams = []
+		bam_cat_out = "%s.cat.bam" %(outp)
+		bam_args = ("-o", bam_cat_out)
 		while nproc:
-			file = result_q.get()
-			bams += [os.path.join(os.getcwd(), file)]
-			print os.path.join(os.getcwd(), file)
+			outfile = result_q.get()
+			bam_args += (outfile,)
+			if not os.path.exists(outfile):
+				print "%s not existed" %(outfile)
 			nproc -= 1
-		#print bams
-		#pysam.cat("-o", "%s.all.bam" %(outp), " ".join(bams))
+
+		print "samtools cat"
+		pysam.cat(*bam_args)
+		bam_sort_out = "%s.cat.so.bam" %(outp)
+		print "samtools sort"
+		pysam.sort("-@", str(nproc), "-o", bam_sort_out, bam_cat_out)
+		print "samtools index"
+		pysam.index(bam_sort_out)
 
 if __name__ == "__main__":
 	main()
